@@ -1,0 +1,10 @@
+{
+  "name": "nexus-ai",
+  "version": "1.0.0",
+  "description": "NEXUS con cerebro IA via Groq + Gemini",
+  "dependencies": {
+    "@google/genai": "^2.24.0",
+    "@netlify/blobs": "^11.1.0",
+    "groq-sdk": "^0.9.0"
+  }
+}

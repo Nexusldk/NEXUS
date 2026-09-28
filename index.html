@@ -29,6 +29,8 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
+    <!-- ═══ SPOTIFY SDK ═══ -->
+<script src="https://sdk.scdn.co/spotify-player.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;500&family=JetBrains+Mono:wght@100;300&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">    <script>
         tailwind.config = {
@@ -1417,6 +1419,10 @@
                     <span class="toggle-dot"></span>
                     <span>Wake word</span>
                 </button>
+                                <button id="spotify-btn" class="control-toggle" title="Conectar Spotify">
+                    <span class="toggle-dot"></span>
+                    <span id="spotify-btn-text">Conectar Spotify</span>
+                </button>
                 <button id="mic-button" class="text-[10px] uppercase tracking-[0.25em] font-mono px-4 py-2 border border-n_cyan/40 rounded-full text-n_cyan hover:bg-n_cyan/10 transition-all duration-500 cursor-pointer">
                     ◉ Activar NEXUS
                 </button>
@@ -2480,8 +2486,21 @@
                 setFocusMode(action.active);
                 break;
             }
-                        case 'play_music': {
-                playMusicInMiniPlayer(action.query, action.videos);
+            case 'play_music': {
+                // ⚡ Intentar primero Spotify, luego YouTube
+                if (spotifyIsConnected && spotifyIsReady && spotifyDeviceId) {
+                    console.log('🎵 Usando Spotify...');
+                    playInSpotify(action.query).then(result => {
+                        if (result.error) {
+                            console.warn('⚠️ Spotify falló, usando YouTube:', result.error);
+                            showToast(`⚠️ Spotify falló, usando YouTube`);
+                            playMusicInMiniPlayer(action.query, action.videos);
+                        }
+                    });
+                } else {
+                    console.log('🎵 Usando YouTube (Spotify no conectado)...');
+                    playMusicInMiniPlayer(action.query, action.videos);
+                }
                 break;
             }
             
@@ -3797,6 +3816,14 @@
     }
     
     function controlMusic(action) {
+        // ⚡ Si Spotify está conectado, controlar Spotify
+        if (spotifyIsConnected && spotifyIsReady && spotifyPlayer) {
+            console.log(`🎵 Controlando Spotify: ${action}`);
+            controlSpotify(action);
+            return;
+        }
+        
+        // Fallback: controlar YouTube
         switch (action) {
             case 'pausar': 
                 if (musicPlayer.isPlaying) togglePlayPause();
@@ -3817,6 +3844,305 @@
     document.getElementById('mini-player-next').addEventListener('click', nextTrack);
     document.getElementById('mini-player-playpause').addEventListener('click', togglePlayPause);
 
+        // ═══════════════════════════════════════════════════════════
+    // ⚡ SPOTIFY INTEGRATION
+    // ═══════════════════════════════════════════════════════════
+    
+    const spotifyBtn = document.getElementById('spotify-btn');
+    const spotifyBtnText = document.getElementById('spotify-btn-text');
+    
+    let spotifyPlayer = null;
+    let spotifyDeviceId = null;
+    let spotifyIsReady = false;
+    let spotifyIsConnected = false;
+    
+    // ═══════════════════════════════════════════════════════════
+    // 1. Verificar si el usuario está conectado a Spotify
+    // ═══════════════════════════════════════════════════════════
+    function checkSpotifyConnection() {
+        // Verificar cookies
+        const cookies = document.cookie;
+        const hasAccessToken = cookies.includes('spotify_access_token');
+        const hasRefreshToken = cookies.includes('spotify_refresh_token');
+        
+        // Verificar parámetros de URL (después del callback OAuth)
+        const urlParams = new URLSearchParams(window.location.search);
+        const justConnected = urlParams.get('spotify_connected') === '1';
+        const spotifyError = urlParams.get('spotify_error');
+        
+        if (spotifyError) {
+            console.warn('⚠️ Error de Spotify:', spotifyError);
+            showToast(`⚠️ Error Spotify: ${spotifyError}`);
+            // Limpiar URL
+            window.history.replaceState({}, '', '/');
+        }
+        
+        if (justConnected || (hasAccessToken && hasRefreshToken)) {
+            spotifyIsConnected = true;
+            spotifyBtnText.innerText = '🎵 Spotify conectado';
+            spotifyBtn.classList.add('active');
+            console.log('✅ Spotify conectado');
+            
+            // Limpiar URL
+            if (justConnected) {
+                window.history.replaceState({}, '', '/');
+                showToast('✅ Spotify conectado');
+            }
+            
+            // Inicializar el player
+            initializeSpotifyPlayer();
+        } else {
+            spotifyIsConnected = false;
+            spotifyBtnText.innerText = 'Conectar Spotify';
+            spotifyBtn.classList.remove('active');
+            console.log('🎵 Spotify no conectado');
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 2. Botón de conectar/desconectar
+    // ═══════════════════════════════════════════════════════════
+    spotifyBtn.addEventListener('click', () => {
+        if (spotifyIsConnected) {
+            // Desconectar
+            if (confirm('¿Desconectar Spotify?')) {
+                document.cookie = 'spotify_access_token=; Path=/; Max-Age=0';
+                document.cookie = 'spotify_refresh_token=; Path=/; Max-Age=0';
+                document.cookie = 'spotify_expires_at=; Path=/; Max-Age=0';
+                spotifyIsConnected = false;
+                spotifyBtnText.innerText = 'Conectar Spotify';
+                spotifyBtn.classList.remove('active');
+                showToast('🔌 Spotify desconectado');
+                if (spotifyPlayer) {
+                    spotifyPlayer.disconnect();
+                    spotifyPlayer = null;
+                }
+            }
+        } else {
+            // Conectar → redirigir al login
+            showToast('🎵 Redirigiendo a Spotify...');
+            window.location.href = '/api/spotify-login';
+        }
+    });
+    
+    // ═══════════════════════════════════════════════════════════
+    // 3. Inicializar Spotify Web Playback SDK
+    // ═══════════════════════════════════════════════════════════
+    function initializeSpotifyPlayer() {
+        if (spotifyIsReady) return;
+        
+        window.onSpotifyWebPlaybackSDKReady = () => {
+            console.log('🎵 Spotify SDK listo');
+            
+            // Obtener access token de las cookies
+            const cookies = document.cookie;
+            const accessTokenMatch = cookies.match(/spotify_access_token=([^;]+)/);
+            const accessToken = accessTokenMatch ? accessTokenMatch[1] : null;
+            
+            if (!accessToken) {
+                console.warn('⚠️ No hay access token');
+                return;
+            }
+            
+            spotifyPlayer = new Spotify.Player({
+                name: 'NEXUS',
+                getOAuthToken: cb => { cb(accessToken); },
+                volume: 0.7,
+            });
+            
+            // Errores
+            spotifyPlayer.addListener('initialization_error', ({ message }) => {
+                console.error('❌ Init error:', message);
+            });
+            
+            spotifyPlayer.addListener('authentication_error', ({ message }) => {
+                console.error('❌ Auth error:', message);
+                // Intentar refrescar token
+                refreshSpotifyToken();
+            });
+            
+            spotifyPlayer.addListener('account_error', ({ message }) => {
+                console.error('❌ Account error:', message);
+                showToast('⚠️ Necesitás Spotify Premium');
+            });
+            
+            spotifyPlayer.addListener('playback_error', ({ message }) => {
+                console.error('❌ Playback error:', message);
+            });
+            
+            // Ready
+            spotifyPlayer.addListener('ready', ({ device_id }) => {
+                console.log('✅ Spotify Player listo. Device ID:', device_id);
+                spotifyDeviceId = device_id;
+                spotifyIsReady = true;
+            });
+            
+            // Estado del player
+            spotifyPlayer.addListener('player_state_changed', state => {
+                if (!state) return;
+                
+                const track = state.track_window.current_track;
+                console.log('🎵 Track:', track.name, '-', track.artists.map(a => a.name).join(', '));
+                
+                // Actualizar UI del mini player
+                updateSpotifyUI(track, !state.paused);
+            });
+            
+            // Conectar
+            spotifyPlayer.connect().then(success => {
+                if (success) {
+                    console.log('🔗 Player conectado a Spotify');
+                } else {
+                    console.error('❌ No se pudo conectar');
+                }
+            });
+        };
+        
+        // Si el SDK ya cargó
+        if (window.Spotify) {
+            window.onSpotifyWebPlaybackSDKReady();
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 4. Refrescar token cuando expira
+    // ═══════════════════════════════════════════════════════════
+    async function refreshSpotifyToken() {
+        try {
+            const response = await fetch('/api/spotify-refresh', { method: 'POST' });
+            if (response.ok) {
+                const data = await response.json();
+                console.log('🔄 Token refrescado');
+                if (spotifyPlayer) {
+                    spotifyPlayer._options.getOAuthToken = cb => cb(data.access_token);
+                }
+            }
+        } catch (err) {
+            console.error('❌ Error refrescando token:', err);
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 5. Actualizar UI cuando hay un track sonando
+    // ═══════════════════════════════════════════════════════════
+    function updateSpotifyUI(track, isPlaying) {
+        miniPlayerSong.innerText = track.name;
+        miniPlayerChannel.innerText = track.artists.map(a => a.name).join(', ');
+        miniPlayerCounter.innerText = isPlaying ? '▶' : '⏸';
+        
+        if (isPlaying) {
+            miniPlayerPlayPause.innerHTML = '<i class="fas fa-pause"></i>';
+        } else {
+            miniPlayerPlayPause.innerHTML = '<i class="fas fa-play"></i>';
+        }
+        
+        // Mostrar el player si no está visible
+        miniPlayer.classList.add('visible');
+        
+        // Si hay album image, mostrarla
+        if (track.album && track.album.images && track.album.images.length > 0) {
+            const imageUrl = track.album.images[0].url;
+            miniPlayerVideo.innerHTML = `
+                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000;">
+                    <img src="${imageUrl}" alt="${track.name}" style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+            `;
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 6. Buscar y reproducir en Spotify
+    // ═══════════════════════════════════════════════════════════
+    async function playInSpotify(query) {
+        if (!spotifyIsConnected || !spotifyIsReady || !spotifyDeviceId) {
+            console.warn('⚠️ Spotify no está listo');
+            return { error: 'Spotify no está listo' };
+        }
+        
+        try {
+            console.log(`🎵 Buscando "${query}" en Spotify...`);
+            
+            // Buscar el track
+            const searchResponse = await fetch(`/api/spotify-search?q=${encodeURIComponent(query)}&type=track&limit=1`);
+            
+            if (!searchResponse.ok) {
+                throw new Error(`Search failed: ${searchResponse.status}`);
+            }
+            
+            const searchData = await searchResponse.json();
+            
+            if (!searchData.results || searchData.results.length === 0) {
+                return { error: `No encontré "${query}" en Spotify` };
+            }
+            
+            const track = searchData.results[0];
+            console.log(`🎵 Reproduciendo: ${track.name} - ${track.artist}`);
+            
+            // Obtener access token
+            const cookies = document.cookie;
+            const accessTokenMatch = cookies.match(/spotify_access_token=([^;]+)/);
+            const accessToken = accessTokenMatch ? accessTokenMatch[1] : null;
+            
+            if (!accessToken) {
+                return { error: 'No hay access token' };
+            }
+            
+            // Reproducir el track en el device de NEXUS
+            const playResponse = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    uris: [track.uri],
+                }),
+            });
+            
+            if (!playResponse.ok) {
+                const errText = await playResponse.text();
+                console.error('❌ Error reproduciendo:', errText);
+                return { error: 'Error reproduciendo en Spotify' };
+            }
+            
+            console.log('✅ Reproduciendo en Spotify');
+            return { success: true, track };
+            
+        } catch (err) {
+            console.error('❌ Error:', err.message);
+            return { error: err.message };
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 7. Controles de Spotify
+    // ═══════════════════════════════════════════════════════════
+    async function controlSpotify(action) {
+        if (!spotifyPlayer) return;
+        
+        switch (action) {
+            case 'pausar':
+                await spotifyPlayer.pause();
+                break;
+            case 'reanudar':
+                await spotifyPlayer.resume();
+                break;
+            case 'siguiente':
+                await spotifyPlayer.nextTrack();
+                break;
+            case 'anterior':
+                await spotifyPlayer.previousTrack();
+                break;
+            case 'cerrar':
+                await spotifyPlayer.pause();
+                break;
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════
+    // 8. Check inicial al cargar
+    // ═══════════════════════════════════════════════════════════
+    setTimeout(() => checkSpotifyConnection(), 500);
     window.addEventListener('beforeunload', () => {
         if (micStream) micStream.getTracks().forEach(t => t.stop());
         if (audioCtx) audioCtx.close();

@@ -641,7 +641,7 @@
             position: fixed;
             top: 90px;
             left: 40px;
-            width: 320px;
+            width: 280px;
             background: rgba(5, 7, 15, 0.92);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -3659,11 +3659,29 @@
                     modestbranding: 1,
                     playsinline: 1,
                     controls: 1,
+                    vq: 'large',        // ⚡ Forzar 480p
+                    suggestedQuality: 'large',  // ⚡ Sugerir 480p
                 },
                 events: {
                     onReady: (event) => {
                         console.log('✅ YouTube player listo');
                         ytPlayerReady = true;
+                        
+                        // ⚡ Forzar 480p al inicio
+                        try {
+                            event.target.setPlaybackQuality('large'); // 'large' = 480p
+                            
+                            // Reintentar después de 1s por si YouTube lo revierte
+                            setTimeout(() => {
+                                if (ytPlayer && ytPlayer.setPlaybackQuality) {
+                                    ytPlayer.setPlaybackQuality('large');
+                                    console.log('🎥 Calidad forzada a 480p');
+                                }
+                            }, 1000);
+                        } catch (err) {
+                            console.warn('No se pudo forzar calidad:', err);
+                        }
+                        
                         event.target.playVideo();
                     },
                     onStateChange: (event) => {

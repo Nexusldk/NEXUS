@@ -1927,7 +1927,7 @@
         
         try {
             // Obtener datos del backend
-            const res = await fetch('/.netlify/functions/nexus-brain', {
+            const res = await fetch('/api/nexus-brain', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userPrompt: `pronóstico extendido de ${ciudad}` }),
@@ -3074,7 +3074,7 @@
                 const t0 = performance.now();
 
                 try {
-                    const response = await fetch('/.netlify/functions/nexus-brain', {
+                    const response = await fetch('/api/nexus-brain', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 

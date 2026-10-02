@@ -2487,18 +2487,13 @@
                 break;
             }
             case 'play_music': {
-                // ⚡ Intentar primero Spotify, luego YouTube
-                if (spotifyIsConnected && spotifyIsReady && spotifyDeviceId) {
-                    console.log('🎵 Usando Spotify...');
-                    playInSpotify(action.query).then(result => {
-                        if (result.error) {
-                            console.warn('⚠️ Spotify falló, usando YouTube:', result.error);
-                            showToast(`⚠️ Spotify falló, usando YouTube`);
-                            playMusicInMiniPlayer(action.query, action.videos);
-                        }
-                    });
+                // ⚡ Solo abrir Spotify (mucho más estable que el SDK)
+                if (spotifyIsConnected) {
+                    console.log('🎵 Abriendo Spotify...');
+                    openInSpotifyApp(action.query);
                 } else {
                     console.log('🎵 Usando YouTube (Spotify no conectado)...');
+                    showToast('🎵 Conectá Spotify para mejor calidad');
                     playMusicInMiniPlayer(action.query, action.videos);
                 }
                 break;
@@ -4058,7 +4053,99 @@
             console.warn('⚠️ Spotify no está listo');
             return { error: 'Spotify no está listo' };
         }
-        
+            // ═══════════════════════════════════════════════════════════
+    // ⚡ Abrir canción en la app de Spotify (sin SDK)
+    // ═══════════════════════════════════════════════════════════
+    async function openInSpotifyApp(query) {
+        try {
+            console.log(`🎵 Buscando "${query}" en Spotify...`);
+            showToast(`🎵 Buscando "${query}"...`);
+            
+            // 1. Buscar en Spotify
+            const searchResponse = await fetch(`/api/spotify-search?q=${encodeURIComponent(query)}&type=track&limit=1`);
+            
+            if (!searchResponse.ok) {
+                throw new Error(`Search failed: ${searchResponse.status}`);
+            }
+            
+            const searchData = await searchResponse.json();
+            
+            if (!searchData.results || searchData.results.length === 0) {
+                showToast(`⚠️ No encontré "${query}" en Spotify`);
+                return { error: `No encontré "${query}"` };
+            }
+            
+            const track = searchData.results[0];
+            console.log(`🎵 Encontrado: ${track.name} - ${track.artist}`);
+            console.log(`🔗 URI: ${track.uri}`);
+            
+            // 2. Detectar si es móvil o desktop
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            
+            // 3. Estrategia según plataforma
+            if (isMobile) {
+                // En móvil: intentar abrir la app nativa de Spotify
+                // Usar el URI de Spotify (spotify:track:xxx) abre la app nativa
+                const spotifyUri = track.uri; // spotify:track:xxx
+                
+                console.log('📱 Abriendo app de Spotify en móvil...');
+                
+                // Intentar con el URI nativo primero
+                window.location.href = spotifyUri;
+                
+                // Fallback: si después de 1s no cambió la página, abrir web
+                setTimeout(() => {
+                    if (document.visibilityState === 'visible') {
+                        console.log('⚠️ App nativa no abrió, usando web...');
+                        window.open(track.spotifyUrl, '_blank');
+                    }
+                }, 1500);
+                
+            } else {
+                // En desktop: intentar abrir la app de escritorio primero
+                console.log('💻 Abriendo Spotify en desktop...');
+                
+                // En desktop, el URI nativo abre la app de escritorio si está instalada
+                // Si no, el navegador pregunta qué hacer
+                window.location.href = track.uri;
+                
+                // Fallback: si después de 1s no cambió la página, abrir web
+                setTimeout(() => {
+                    if (document.visibilityState === 'visible') {
+                        console.log('⚠️ App de escritorio no abrió, usando web...');
+                        window.open(track.spotifyUrl, '_blank');
+                    }
+                }, 1500);
+            }
+            
+            // Actualizar UI del mini player con info del track
+            miniPlayerSong.innerText = track.name;
+            miniPlayerChannel.innerText = track.artist;
+            miniPlayerCounter.innerText = '🎵';
+            
+            // Mostrar el player con la imagen del álbum
+            if (track.albumImage) {
+                miniPlayerVideo.innerHTML = `
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000; position: relative;">
+                        <img src="${track.albumImage}" alt="${track.name}" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.4);">
+                            <i class="fab fa-spotify" style="font-size: 64px; color: #1DB954; text-shadow: 0 0 30px #1DB954;"></i>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            miniPlayer.classList.add('visible');
+            showToast(`🎵 Reproduciendo en Spotify`);
+            
+            return { success: true, track };
+            
+        } catch (err) {
+            console.error('❌ Error:', err.message);
+            showToast(`❌ Error: ${err.message}`);
+            return { error: err.message };
+        }
+    }
         try {
             console.log(`🎵 Buscando "${query}" en Spotify...`);
             

@@ -1376,6 +1376,54 @@
             }
         }
     </style>
+<style id="nexus-buddy-styles">
+/* Compañero NEXUS: SVG + CSS + JavaScript, sin dependencias añadidas. */
+#core-container{--nx-drag-x:0px;--nx-drag-y:0px;--nx-look-x:0px;--nx-look-y:0px;--nx-energy:0;--nx-shake-x:0px;--nx-shake-y:0px;width:clamp(200px,26vw,310px)!important;height:clamp(200px,26vw,310px)!important;max-width:70vw;max-height:70vw;flex-shrink:0;position:relative;display:block;transform:translate(var(--nx-drag-x),var(--nx-drag-y))!important;transition:none!important;touch-action:none;user-select:none;cursor:grab;z-index:40;outline:none}
+#core-container:focus-visible{outline:2px solid #68efff;outline-offset:10px;border-radius:30%}
+#core-container[data-nx-dragging="true"]{cursor:grabbing}
+#core-container #core-dot,#core-container #audio-canvas{display:none!important}
+.nx-motion{width:100%;height:100%;transform:translate(var(--nx-shake-x),var(--nx-shake-y)) scale(calc(1 + var(--nx-energy)*.025))}
+.nx-breathe{width:100%;height:100%;transform-origin:50% 85%;animation:nx-breathe 4.8s ease-in-out infinite}
+.nx-avatar{display:block;width:100%;height:100%;overflow:visible;pointer-events:none}
+.nx-gaze{transform:translate(var(--nx-look-x),var(--nx-look-y))}
+.nx-eye-blink{transform-box:fill-box;transform-origin:center;transition:transform .07s ease-out}
+#core-container[data-nx-blink="true"] .nx-eye-blink{transform:scaleY(.06)}
+.nx-face-shift{transition:transform .3s ease}
+.nx-mouth-think,.nx-mouth-talk,.nx-mouth-alert,.nx-thought-dots{display:none}
+#core-container[data-nx-state="listening"] .nx-breathe{animation-duration:3.2s}
+#core-container[data-nx-state="listening"] .nx-shell{stroke:#9cfaff}
+#core-container[data-nx-state="processing"] .nx-face-shift{transform:translateY(-3px)}
+#core-container[data-nx-state="processing"] .nx-mouth-rest,#core-container[data-nx-state="speaking"] .nx-mouth-rest,#core-container[data-nx-state="alert"] .nx-mouth-rest{display:none}
+#core-container[data-nx-state="processing"] .nx-mouth-think,#core-container[data-nx-state="processing"] .nx-thought-dots,#core-container[data-nx-state="speaking"] .nx-mouth-talk,#core-container[data-nx-state="alert"] .nx-mouth-alert{display:block}
+#core-container[data-nx-state="processing"] .nx-thought-dots circle{animation:nx-dot 1.1s ease-in-out infinite}
+#core-container[data-nx-state="processing"] .nx-thought-dots circle:nth-child(2){animation-delay:.14s}
+#core-container[data-nx-state="processing"] .nx-thought-dots circle:nth-child(3){animation-delay:.28s}
+#core-container[data-nx-state="speaking"] .nx-mouth-talk{transform-box:fill-box;transform-origin:center;animation:nx-talk .28s ease-in-out infinite alternate}
+#core-container[data-nx-state="alert"] .nx-shell{stroke:#ffb84d}
+#core-container[data-nx-state="alert"] .nx-state{color:#ffc481;border-color:#895f37}
+.nx-caption{position:absolute;left:50%;top:100%;transform:translateX(-50%);display:flex;align-items:center;flex-direction:column;gap:8px;width:max-content;max-width:82vw;pointer-events:none;text-align:center}
+.nx-state{display:inline-block;padding:5px 13px;border:1px solid #275572;border-radius:30px;font:10px/1.4 ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:#b9f5ff;background:#081626}
+.nx-help{font:10px/1.4 ui-monospace,monospace;color:#839db3;max-width:78vw}
+#nx-controls[hidden]{display:none!important}
+#nx-controls{box-sizing:border-box;position:fixed;right:24px;bottom:90px;z-index:145;width:290px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 120px);overflow-y:auto;padding:18px;border:1px solid #285273;border-radius:18px;background:rgba(6,17,33,.98);box-shadow:0 16px 50px #0007;color:#d9f5ff;font:13px/1.5 Inter,system-ui,sans-serif;user-select:text}
+#nx-controls .nx-panel-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#nx-controls h2{font:500 15px/1.4 Inter,system-ui,sans-serif;margin:0;letter-spacing:0}
+#nx-controls p{color:#8bacc3;margin:9px 0 12px}
+#nx-controls button{box-sizing:border-box;display:block;width:100%;min-height:42px;border:1px solid #24445f;border-radius:10px;background:#0c2034;color:#c3f5ff;padding:10px 12px;margin-top:7px;text-align:left;cursor:pointer;font:inherit;touch-action:manipulation}
+#nx-controls button:hover{background:#123049;border-color:#33b5d5}
+#nx-controls button:focus-visible{outline:2px solid #69eaff;outline-offset:2px}
+#nx-controls button:disabled{cursor:wait;opacity:.65}
+#nx-controls #nx-close{width:34px;min-height:34px;text-align:center;margin:0;padding:3px;font-size:22px;line-height:1}
+#nx-controls .nx-panel-note{font-size:11px;margin-bottom:0}
+.nx-page-hidden #core-container *{animation-play-state:paused!important}
+@keyframes nx-breathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.015,1.025)}}
+@keyframes nx-dot{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes nx-talk{from{transform:scaleY(.45)}to{transform:scaleY(1)}}
+@media(max-width:600px){#core-container{width:230px!important;height:230px!important}#nx-controls{right:12px;bottom:88px;width:calc(100vw - 24px);max-height:55dvh}.nx-help{font-size:9px}}
+@media(max-height:520px){#core-container{width:165px!important;height:165px!important}.nx-help{display:none}}
+@media(prefers-reduced-motion:reduce){#core-container *{animation:none!important;transition:none!important}.nx-motion{transform:none}.nx-gaze{transform:none}}
+
+</style>
 </head>
 <body class="antialiased selection:bg-n_cyan selection:text-n_bg1 font-sans font-light">
 
@@ -1431,14 +1479,38 @@
         </header>
 
         <main class="flex-1 flex flex-col items-center justify-center relative">
-            <div id="core-container" class="state-dormant group" onclick="cycleState()">
-                <div class="absolute inset-0 bg-n_cyan/5 rounded-full blur-3xl scale-150 opacity-0 group-[.state-listening]:opacity-100 transition-opacity duration-1000"></div>
-                <canvas id="audio-canvas" width="640" height="640"></canvas>
-                <div class="ring ring-3"></div>
-                <div class="ring ring-2"></div>
-                <div class="ring ring-1"></div>
-                <div class="core-dot" id="core-dot"></div>
-            </div>
+<div id="core-container" class="state-dormant group" role="button" tabindex="0" aria-label="Compañero NEXUS. Abrir controles; arrastrar para mover." aria-controls="nx-controls" aria-expanded="false" data-nx-state="dormant">
+  <div class="nx-motion"><div class="nx-breathe">
+    <svg class="nx-avatar" viewBox="0 0 280 280" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="nx-shell" x1="0" y1="0" x2=".6" y2="1"><stop stop-color="#0877ba"/><stop offset=".36" stop-color="#073b79"/><stop offset="1" stop-color="#06162e"/></linearGradient>
+        <linearGradient id="nx-outline" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#59f5ff"/><stop offset="1" stop-color="#0b538b"/></linearGradient>
+        <linearGradient id="nx-eye" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e9ffff"/><stop offset="1" stop-color="#85e9fa"/></linearGradient>
+        <clipPath id="nx-left-clip"><ellipse cx="88" cy="132" rx="32" ry="39"/></clipPath>
+        <clipPath id="nx-right-clip"><ellipse cx="192" cy="132" rx="32" ry="39"/></clipPath>
+      </defs>
+      <ellipse cx="140" cy="260" rx="88" ry="7" fill="#00d9ff" opacity=".07"/>
+      <path class="nx-shell" d="M140 20C244 20 260 36 260 140S244 260 140 260 20 244 20 140 36 20 140 20Z" fill="url(#nx-shell)" stroke="url(#nx-outline)" stroke-width="2.5"/>
+      <path d="M58 43Q140 17 222 43" stroke="#76edff" stroke-opacity=".22" stroke-width="2" fill="none"/>
+      <g class="nx-face-shift">
+        <g class="nx-brows" fill="none" stroke="#47bbfa" stroke-width="3" stroke-linecap="round"><path d="M67 79Q84 69 102 77"/><path d="M177 77Q195 69 213 79"/></g>
+        <g class="nx-eye-blink">
+          <ellipse cx="88" cy="132" rx="32" ry="39" fill="url(#nx-eye)"/><ellipse cx="192" cy="132" rx="32" ry="39" fill="url(#nx-eye)"/>
+          <g clip-path="url(#nx-left-clip)"><g class="nx-gaze"><ellipse cx="93" cy="134" rx="21" ry="29" fill="#03142b"/><ellipse cx="93" cy="134" rx="22" ry="30" fill="none" stroke="#21b8ec" stroke-width="2"/><circle cx="101" cy="119" r="6.8" fill="#fff"/><circle cx="84" cy="145" r="2.5" fill="#b0faff" opacity=".5"/></g></g>
+          <g clip-path="url(#nx-right-clip)"><g class="nx-gaze"><ellipse cx="187" cy="134" rx="21" ry="29" fill="#03142b"/><ellipse cx="187" cy="134" rx="22" ry="30" fill="none" stroke="#21b8ec" stroke-width="2"/><circle cx="195" cy="119" r="6.8" fill="#fff"/><circle cx="178" cy="145" r="2.5" fill="#b0faff" opacity=".5"/></g></g>
+        </g>
+        <path class="nx-mouth-rest" d="M128 190Q140 201 152 190" fill="none" stroke="#67eaff" stroke-width="3" stroke-linecap="round"/>
+        <path class="nx-mouth-think" d="M135 194H145" fill="none" stroke="#67eaff" stroke-width="3" stroke-linecap="round"/>
+        <g class="nx-mouth-talk"><ellipse cx="140" cy="195" rx="13" ry="12" fill="#02152a" stroke="#0a6b9c"/><path d="M130 199Q140 191 150 199Q140 210 130 199" fill="#4ee9ff"/></g>
+        <path class="nx-mouth-alert" d="M129 200Q140 190 151 200" fill="none" stroke="#ffba79" stroke-width="3" stroke-linecap="round"/>
+      </g>
+      <g class="nx-thought-dots" fill="#76f3ff"><circle cx="120" cy="239" r="3"/><circle cx="140" cy="239" r="3"/><circle cx="160" cy="239" r="3"/></g>
+    </svg>
+  </div></div>
+  <div class="nx-caption"><span class="nx-state" id="nx-state-label" role="status" aria-live="polite">Neutro</span><span class="nx-help">Tocá para abrir controles · arrastrá para mover</span></div>
+  <div id="core-dot" hidden aria-hidden="true"></div><canvas id="audio-canvas" width="2" height="2" hidden aria-hidden="true"></canvas>
+</div>
+
             <div class="absolute bottom-16 text-center w-full max-w-3xl min-h-[60px] flex items-center justify-center pointer-events-none px-6">
                 <p id="voice-subtitle" aria-live="polite" role="status"
                    class="text-n_text1 text-xl font-light tracking-wide opacity-90 transition-opacity duration-500 hidden-subs"
@@ -1473,13 +1545,7 @@
                 <div class="spectrum-bar" data-bar style="height: 4px;"></div>
                 <div class="spectrum-bar" data-bar style="height: 4px;"></div>
             </div>
-            <div class="glass-panel px-4 py-2 rounded-full flex gap-4 opacity-10 hover:opacity-100 transition-opacity duration-500">
-                <button onclick="setState('dormant')"    class="w-2 h-2 rounded-full bg-n_blue  hover:scale-150 transition-transform"></button>
-                <button onclick="setState('listening')"  class="w-2 h-2 rounded-full bg-n_text1 hover:scale-150 transition-transform"></button>
-                <button onclick="setState('processing')" class="w-2 h-2 rounded-full bg-n_cyan  hover:scale-150 transition-transform"></button>
-                <button onclick="setState('speaking')"   class="w-2 h-2 rounded-full bg-n_cyan  hover:scale-150 transition-transform"></button>
-                <button onclick="setState('alert')"      class="w-2 h-2 rounded-full bg-n_alert hover:scale-150 transition-transform"></button>
-            </div>
+            <div class="text-[9px] text-n_text2 uppercase tracking-[0.15em]">Compañero conectado a NEXUS</div>
         </footer>
     </div>
 
@@ -2961,6 +3027,7 @@
             console.error(`Error: ${err.message}`);
             micButton.disabled = false;
             micButton.innerText = '✕ Reintentar';
+            if (window.NexusBuddy) window.NexusBuddy.setState('alert');
         }
     }
     micButton.addEventListener('click', initAudio);
@@ -3158,7 +3225,7 @@
 
     let spaceHeld = false;
     document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && !spaceHeld && !e.repeat && audioReady && !isSpeakingAloud && !e.ctrlKey) {
+        if (!e.target.closest?.('#nx-controls, #core-container, input, textarea, select, [contenteditable=true]') && e.code === 'Space' && !spaceHeld && !e.repeat && audioReady && !isSpeakingAloud && !e.ctrlKey) {
             e.preventDefault();
             spaceHeld = true;
             startCapture();
@@ -3236,7 +3303,7 @@
     // ANÁLISIS DE AUDIO
     // ═══════════════════════════════════════════════════════════
     function analyzeAudio() {
-        if (!audioReady) { requestAnimationFrame(analyzeAudio); return; }
+        if (!audioReady || document.hidden) { setTimeout(analyzeAudio, 250); return; }
 
         analyser.getByteFrequencyData(frequencyData);
         analyser.getByteTimeDomainData(timeDomainData);
@@ -3259,14 +3326,7 @@
         levels.treble += (rawTreble - levels.treble) * smooth;
 
         const vol = levels.volume;
-        const scale = 1 + vol * 2.2;
-        const stateColor = getStateColor(currentState);
-
-        coreDot.style.transform = `scale(${scale})`;
-        coreDot.style.boxShadow = `
-            0 0 ${20 + vol * 50}px ${8 + vol * 24}px ${stateColor},
-            0 0 ${60 + vol * 80}px ${20 + vol * 30}px ${stateColor}44
-        `;
+        if (window.NexusBuddy) window.NexusBuddy.setVolume(vol);
 
         const bars = document.querySelectorAll('[data-bar]');
         for (let i = 0; i < bars.length; i++) {
@@ -3276,7 +3336,7 @@
             bars[i].style.opacity = 0.4 + mag * 0.6;
         }
 
-        drawAudioCanvas(vol);
+        // La visualización del compañero usa SVG; no dibujar el antiguo halo circular.
         requestAnimationFrame(analyzeAudio);
     }
 
@@ -3397,6 +3457,7 @@
     function setState(stateName) {
         clearEnvironment();
         currentState = stateName;
+        if (window.NexusBuddy) window.NexusBuddy.setState(stateName);
         currentStateIndex = states.indexOf(stateName);
         core.className = 'group';
         core.classList.add(`state-${stateName}`);
@@ -3461,7 +3522,7 @@
         currentX += (targetX - currentX) * 0.05;
         currentY += (targetY - currentY) * 0.05;
         parallaxLayer.style.transform = `translate(${currentX}px, ${currentY}px)`;
-        core.style.transform = `translate(${-currentX * 1.2}px, ${-currentY * 1.2}px)`;
+        // El compañero conserva su posición de arrastre; su mirada tiene parallax independiente.
         requestAnimationFrame(animateParallax);
     }
     animateParallax();
@@ -4422,5 +4483,101 @@
         }
     });
     </script>
+<section id="nx-controls" class="nx-controls" aria-label="Controles del compañero NEXUS" hidden>
+  <div class="nx-panel-header"><h2>Compañero NEXUS</h2><button type="button" id="nx-close" aria-label="Cerrar controles">×</button></div>
+  <p id="nx-panel-state">Estado: Neutro</p>
+  <button type="button" data-nx-action="audio" id="nx-audio-action">Activar audio</button>
+  <button type="button" data-nx-action="subtitles" id="nx-subs-action" aria-pressed="false">Subtítulos</button>
+  <button type="button" data-nx-action="manage">Gestión</button>
+  <button type="button" data-nx-action="center">Centrar compañero</button>
+  <p class="nx-panel-note">Los estados reflejan la actividad de NEXUS. El compañero usa el analizador de audio existente.</p>
+</section>
+
+<script>
+/* Compañero original NEXUS. No solicita permisos ni crea streams de audio. */
+(() => {
+ 'use strict';
+ const core=document.getElementById('core-container'),panel=document.getElementById('nx-controls');
+ if(!core||!panel)return;
+ const label=document.getElementById('nx-state-label'),panelState=document.getElementById('nx-panel-state');
+ const audioButton=document.getElementById('nx-audio-action'),subsButton=document.getElementById('nx-subs-action');
+ const labels={dormant:'Neutro',listening:'Escuchando',processing:'Procesando',speaking:'Hablando',alert:'Atención'};
+ const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+ let state='dormant',lastEnergy=0,lastAudioUpdate=0,frame=0,blinkTimer=0,blinkEnd=0,drag=null;
+ let look={x:0,y:0,tx:0,ty:0},offset={x:0,y:0};
+ const key='nexus.buddy.position.v1';
+ const clamp=(v,min,max)=>max<min?0:Math.max(min,Math.min(max,v));
+ function position(x,y){
+  const rect=core.getBoundingClientRect();
+  const baseX=rect.left-offset.x,baseY=rect.top-offset.y;
+  offset.x=clamp(x,12-baseX,innerWidth-rect.width-12-baseX);
+  offset.y=clamp(y,72-baseY,innerHeight-rect.height-100-baseY);
+  core.style.setProperty('--nx-drag-x',offset.x+'px');core.style.setProperty('--nx-drag-y',offset.y+'px');
+ }
+ function savePosition(){try{localStorage.setItem(key,JSON.stringify(offset));}catch(_){}}
+ function center(){position(0,0);try{localStorage.removeItem(key);}catch(_){}}
+ function syncControls(){
+  const enabled=typeof audioReady!=='undefined'&&audioReady;
+  audioButton.textContent=enabled?'Audio activo · mantener para hablar':'Activar audio';
+  subsButton.setAttribute('aria-pressed',String(typeof subsVisible!=='undefined'&&subsVisible));
+  subsButton.textContent=(typeof subsVisible!=='undefined'&&subsVisible)?'Subtítulos: activados':'Subtítulos: desactivados';
+ }
+ function setOpen(open,returnFocus=false){panel.hidden=!open;core.setAttribute('aria-expanded',String(open));if(open){syncControls();document.getElementById('nx-close').focus({preventScroll:true});}else if(returnFocus)core.focus({preventScroll:true});}
+ function setState(next){
+  if(!Object.prototype.hasOwnProperty.call(labels,next))return false;
+  state=next;core.dataset.nxState=next;label.textContent=labels[next];panelState.textContent='Estado: '+labels[next];
+  core.setAttribute('aria-label','Compañero NEXUS: '+labels[next]+'. Abrir controles; arrastrar para mover.');
+  if(next!=='listening')setVolume(0,true);return true;
+ }
+ function setVolume(value,force=false){
+  if(document.hidden)return;
+  const now=performance.now();if(!force&&now-lastAudioUpdate<32)return;lastAudioUpdate=now;
+  const energy=state==='listening'&&Number.isFinite(value)?Math.max(0,Math.min(1,value*3)):0;
+  lastEnergy+=(energy-lastEnergy)*.4;
+  if(force)lastEnergy=0;
+  core.style.setProperty('--nx-energy',lastEnergy.toFixed(3));
+  core.style.setProperty('--nx-shake-x',(reduced.matches?0:Math.sin(now*.048)*lastEnergy*1.1).toFixed(2)+'px');
+  core.style.setProperty('--nx-shake-y',(reduced.matches?0:Math.cos(now*.059)*lastEnergy*.7).toFixed(2)+'px');
+ }
+ function animateGaze(){
+  frame=0;if(document.hidden||reduced.matches)return;
+  look.x+=(look.tx-look.x)*.18;look.y+=(look.ty-look.y)*.18;
+  core.style.setProperty('--nx-look-x',look.x.toFixed(2)+'px');core.style.setProperty('--nx-look-y',look.y.toFixed(2)+'px');
+  if(Math.abs(look.tx-look.x)+Math.abs(look.ty-look.y)>.04)frame=requestAnimationFrame(animateGaze);
+ }
+ function follow(e){if(e.pointerType==='touch'||document.hidden||reduced.matches)return;const r=core.getBoundingClientRect();look.tx=clamp((e.clientX-r.left-r.width/2)/r.width*12,-8,8);look.ty=clamp((e.clientY-r.top-r.height/2)/r.height*10,-6,6);if(!frame)frame=requestAnimationFrame(animateGaze);}
+ function blink(){if(document.hidden||reduced.matches)return;core.dataset.nxBlink='true';clearTimeout(blinkEnd);blinkEnd=setTimeout(()=>{core.dataset.nxBlink='false';},115);}
+ function queueBlink(){clearTimeout(blinkTimer);if(document.hidden||reduced.matches)return;blinkTimer=setTimeout(()=>{blink();queueBlink();},2800+Math.random()*4200);}
+ document.addEventListener('pointermove',follow,{passive:true});
+ document.addEventListener('pointerout',e=>{if(!e.relatedTarget){look.tx=look.ty=0;if(!frame)frame=requestAnimationFrame(animateGaze);}},{passive:true});
+ core.addEventListener('pointerdown',e=>{if(e.button!==0)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY,startX:offset.x,startY:offset.y,moved:false};core.setPointerCapture(e.pointerId);});
+ core.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6)drag.moved=true;if(drag.moved){core.dataset.nxDragging='true';position(drag.startX+e.clientX-drag.x,drag.startY+e.clientY-drag.y);}});
+ function endDrag(e){if(!drag||drag.id!==e.pointerId)return;const moved=drag.moved;drag=null;core.dataset.nxDragging='false';if(moved)savePosition();else if(e.type!=='pointercancel')setOpen(panel.hidden);}
+ core.addEventListener('pointerup',endDrag);core.addEventListener('pointercancel',endDrag);core.addEventListener('lostpointercapture',()=>{drag=null;core.dataset.nxDragging='false';});
+ core.addEventListener('keydown',e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();setOpen(panel.hidden);}});
+ document.getElementById('nx-close').addEventListener('click',()=>setOpen(false,true));
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){setOpen(false,true);}});
+ document.addEventListener('pointerdown',e=>{if(!panel.hidden&&!panel.contains(e.target)&&!core.contains(e.target))setOpen(false);});
+ panel.addEventListener('click',async e=>{
+  const button=e.target.closest('[data-nx-action]');if(!button)return;
+  switch(button.dataset.nxAction){
+   case 'audio':
+    if(typeof audioReady!=='undefined'&&audioReady){setOpen(false);document.getElementById('ptt-button')?.focus({preventScroll:true});return;}
+    if(typeof initAudio==='function'){button.disabled=true;try{await initAudio();}finally{button.disabled=false;syncControls();}}break;
+   case 'subtitles':document.getElementById('toggle-subs')?.click();syncControls();break;
+   case 'manage':setOpen(false);document.getElementById('manage-btn')?.click();break;
+   case 'center':center();break;
+  }
+ });
+ document.addEventListener('visibilitychange',()=>{document.body.classList.toggle('nx-page-hidden',document.hidden);if(document.hidden){cancelAnimationFrame(frame);frame=0;clearTimeout(blinkTimer);clearTimeout(blinkEnd);core.dataset.nxBlink='false';}else queueBlink();});
+ const motionChanged=()=>{cancelAnimationFrame(frame);frame=0;queueBlink();};
+ if(reduced.addEventListener)reduced.addEventListener('change',motionChanged);else reduced.addListener(motionChanged);
+ window.addEventListener('resize',()=>position(offset.x,offset.y),{passive:true});
+ window.NexusBuddy=Object.freeze({setState,setVolume,blink,center,open:()=>setOpen(true),close:()=>setOpen(false),get state(){return state;}});
+ setState(typeof currentState==='string'?currentState:'dormant');queueBlink();
+ requestAnimationFrame(()=>{try{const saved=JSON.parse(localStorage.getItem(key));if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y))position(saved.x,saved.y);}catch(_){}});
+})();
+
+</script>
 </body>
 </html>

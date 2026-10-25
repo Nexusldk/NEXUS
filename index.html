@@ -1423,6 +1423,29 @@
 @media(max-height:520px){#core-container{width:165px!important;height:165px!important}.nx-help{display:none}}
 @media(prefers-reduced-motion:reduce){#core-container *{animation:none!important;transition:none!important}.nx-motion{transform:none}.nx-gaze{transform:none}}
 
+/* Emociones y accesorios independientes del estado operativo de voz. */
+.nx-prop{display:none;pointer-events:none}
+#core-container[data-nx-accessory="witch_hat"] .nx-prop-witch,
+#core-container[data-nx-accessory="umbrella"] .nx-prop-umbrella,
+#core-container[data-nx-accessory="glasses"] .nx-prop-glasses,
+#core-container[data-nx-accessory="headphones"] .nx-prop-headphones,
+#core-container[data-nx-accessory="scarf"] .nx-prop-scarf{display:block}
+.nx-brows path{transform-box:fill-box;transform-origin:center;transition:transform .3s ease}
+#core-container[data-nx-emotion="curious"] .nx-brows path:first-child{transform:translateY(-7px) rotate(-10deg)}
+#core-container[data-nx-emotion="curious"] .nx-brows path:last-child{transform:translateY(2px) rotate(6deg)}
+#core-container[data-nx-emotion="happy"] .nx-brows path{transform:translateY(-5px)}
+#core-container[data-nx-emotion="surprised"] .nx-brows path{transform:translateY(-12px)}
+#core-container[data-nx-emotion="thoughtful"] .nx-brows path:first-child{transform:translateY(3px) rotate(10deg)}
+#core-container[data-nx-emotion="thoughtful"] .nx-brows path:last-child{transform:translateY(-5px) rotate(-10deg)}
+#core-container[data-nx-emotion="concerned"] .nx-brows path:first-child,
+#core-container[data-nx-emotion="empathetic"] .nx-brows path:first-child{transform:rotate(-16deg)}
+#core-container[data-nx-emotion="concerned"] .nx-brows path:last-child,
+#core-container[data-nx-emotion="empathetic"] .nx-brows path:last-child{transform:rotate(16deg)}
+#core-container[data-nx-emotion="amused"] .nx-brows path:first-child{transform:translateY(-5px) rotate(-9deg)}
+#core-container[data-nx-emotion="amused"] .nx-brows path:last-child{transform:translateY(4px) rotate(12deg)}
+.nx-motion{transform:translate(var(--nx-shake-x),var(--nx-shake-y)) rotate(var(--nx-tilt,0deg)) scale(calc(1 + var(--nx-energy)*.025))}
+@media(prefers-reduced-motion:reduce){.nx-motion{transform:none}.nx-brows path{transition:none}}
+
 </style>
 </head>
 <body class="antialiased selection:bg-n_cyan selection:text-n_bg1 font-sans font-light">
@@ -1505,6 +1528,11 @@
         <path class="nx-mouth-alert" d="M129 200Q140 190 151 200" fill="none" stroke="#ffba79" stroke-width="3" stroke-linecap="round"/>
       </g>
       <g class="nx-thought-dots" fill="#76f3ff"><circle cx="120" cy="239" r="3"/><circle cx="140" cy="239" r="3"/><circle cx="160" cy="239" r="3"/></g>
+      <g class="nx-prop nx-prop-headphones" fill="none" stroke="#60e6ff" stroke-width="6"><path d="M27 137C20 4 260 4 253 137"/><rect x="17" y="109" width="18" height="54" rx="8" fill="#0d3151" stroke-width="3"/><rect x="245" y="109" width="18" height="54" rx="8" fill="#0d3151" stroke-width="3"/></g>
+      <g class="nx-prop nx-prop-glasses" fill="none" stroke="#55e6ff" stroke-width="4"><rect x="52" y="105" width="73" height="61" rx="21"/><rect x="155" y="105" width="73" height="61" rx="21"/><path d="M125 124Q140 115 155 124M52 120L28 110M228 120L252 110"/></g>
+      <g class="nx-prop nx-prop-scarf"><path d="M48 215Q142 244 235 215L232 237Q141 267 48 237Z" fill="#177998" stroke="#62dbea" stroke-width="2"/><path d="M188 233L214 239L206 274L182 268Z" fill="#27a9bb" stroke="#62dbea" stroke-width="2"/><path d="M185 261L207 267M190 248L211 254" stroke="#c5faff" stroke-width="3"/></g>
+      <g class="nx-prop nx-prop-witch" transform="rotate(-8 140 50)"><path d="M63 46Q104 11 123 -28Q137 -56 178 -33L158 -29L210 42Z" fill="#312550" stroke="#7961af" stroke-width="2"/><path d="M80 26Q142 15 192 30L203 44Q146 29 70 43Z" fill="#2ed4e9"/><ellipse cx="140" cy="49" rx="108" ry="16" fill="#282043" stroke="#7961af" stroke-width="2"/><path d="M171 -27V-10" stroke="#98e9ff"/><path d="M171 -13L174 -5L183 -4L176 2L178 11L171 6L164 11L165 2L159 -4L168 -5Z" fill="#d0faff"/></g>
+      <g class="nx-prop nx-prop-umbrella"><path d="M248 79L236 191Q232 208 220 200" fill="none" stroke="#75d8ef" stroke-width="5" stroke-linecap="round"/><path d="M187 81Q193 34 249 29Q302 36 311 81Q297 66 285 81Q270 67 249 81Q234 67 218 81Q201 67 187 81Z" fill="#1bb5dc" stroke="#83f2ff" stroke-width="2"/><path d="M249 29Q227 43 218 81M249 29Q273 43 285 81M249 29V81" fill="none" stroke="#7ce8fb" stroke-width="1.7"/><circle cx="239" cy="178" r="9" fill="#145082" stroke="#51d3ec"/><path d="M200 113L196 124Q197 131 203 126Q206 121 200 113M286 109L282 122Q283 128 289 123Q292 120 286 109" fill="#3cd7f0"/></g>
     </svg>
   </div></div>
   <div class="nx-caption"><span class="nx-state" id="nx-state-label" role="status" aria-live="polite">Neutro</span><span class="nx-help">Tocá para abrir controles · arrastrá para mover</span></div>
@@ -2014,11 +2042,14 @@
                 'rosario': { lat: -32.9468, lon: -60.6393 },
                 'mendoza': { lat: -32.8895, lon: -68.8458 },
             };
-            const loc = coords[ciudad.toLowerCase()] || coords['buenos aires'];
+            const loc = coords[ciudad.toLowerCase()];
+            if (!loc) throw new Error('No tengo la ubicación de esa ciudad');
             
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America/Argentina/Buenos_Aires&forecast_days=7`;
             const weatherRes = await fetch(url);
+            if (!weatherRes.ok) throw new Error('No se pudo consultar el pronóstico');
             const weatherData = await weatherRes.json();
+            if (window.NexusBuddy && weatherData.daily?.weather_code?.length) window.NexusBuddy.applyWeather({weatherCode:weatherData.daily.weather_code[0],probLluvia:weatherData.daily.precipitation_probability_max?.[0]});
             
             const codeIcons = {
                 0: 'fa-sun', 1: 'fa-sun', 2: 'fa-cloud-sun', 3: 'fa-cloud',
@@ -2526,7 +2557,7 @@
                 else if (action.panelType === 'video_fallback') renderVideoPanel(action.query, []);
                 else if (action.panelType === 'map') renderMapPanel(action.query);
                 else if (action.panelType === 'text') renderTextPanel(action.title, action.content, action.source);
-                else if (action.panelType === 'weather') renderWeatherPanel(action.query || 'Buenos Aires');
+                else if (action.panelType === 'weather') renderWeatherPanel(action.query || 'Córdoba');
                 break;
             }
             case 'clear_panels': {
@@ -3004,16 +3035,17 @@
                     const wakeEnabled = startWakeWord();
                     const hour = new Date().getHours();
                     let saludo = 'Buenas noches';
-                    if (hour >= 5 && hour < 12) saludo = 'Buenos días';
+                    if (hour >= 5 && hour < 12) saludo = 'Buen día';
                     else if (hour >= 12 && hour < 19) saludo = 'Buenas tardes';
                     
+                    if (window.NexusBuddy) window.NexusBuddy.applyCompanion({emotion:'happy',accessory:'none'});
                     setState('speaking');
                     if (wakeEnabled) {
-                        const greeting = [`${saludo}, Señor.`, 'Sistemas en línea. Diga "Nexus" cuando quiera hablarme.'];
+                        const greeting = [`${saludo}, Franco.`, '¿Qué hacemos hoy? Decí "Nexus" cuando quieras charlar.'];
                         if (subsVisible) speakText(greeting.join(' '));
                         speakOutLoudStreaming(greeting, () => backToDormant());
                     } else {
-                        const greeting = [`${saludo}, Señor.`, 'Sistemas en línea.', 'El wake word no está disponible.'];
+                        const greeting = [`${saludo}, Franco.`, '¿Qué hacemos hoy? Podés mantener el botón para hablar conmigo.'];
                         if (subsVisible) speakText(greeting.join(' '));
                         speakOutLoudStreaming(greeting, () => backToDormant());
                     }
@@ -3171,6 +3203,7 @@
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                     const data = await response.json();
+                    if (window.NexusBuddy) window.NexusBuddy.applyCompanion(data.companion);
                     const elapsed = Math.round(performance.now() - t0);
 
                     console.log(`✅ ${elapsed}ms (${data.intent || 'general'})`);
@@ -3192,7 +3225,7 @@
                         addToHistory(data.transcribedText, data.reply);
                     }
 
-                    const aiReply = data.reply || 'No he podido procesar su solicitud, Señor.';
+                    const aiReply = data.reply || 'No conseguí una respuesta útil. ¿Probamos de nuevo?';
                     const sentences = data.sentences || [aiReply];
                     
                     setState('speaking');
@@ -3201,7 +3234,8 @@
                     speakOutLoudStreaming(sentences, () => backToDormant());
                 } catch (error) {
                     console.error('❌ Error:', error);
-                    const fallback = 'Mis disculpas, Señor. Interferencia temporal.';
+                    if (window.NexusBuddy) window.NexusBuddy.applyCompanion({emotion:'concerned',accessory:'none'});
+                    const fallback = 'Se cortó la conexión. Probemos de nuevo en un momento.';
                     setState('speaking');
                     if (subsVisible) speakText(fallback);
                     speakOutLoudStreaming([fallback], () => backToDormant());
@@ -3446,7 +3480,7 @@
             span.style.animationDelay = `${index * 0.06}s`;
             span.className = 'typewriter-word';
             const cleanWord = word.replace(/[^a-zA-ZáéíóúÁÉÍÓÚ]/g, '').toLowerCase();
-            if (['señor', 'nexus', 'anomalía', 'sistemas', 'alerta'].includes(cleanWord)) {
+            if (['franco', 'nexus', 'anomalía', 'sistemas', 'alerta'].includes(cleanWord)) {
                 span.classList.add('text-n_amber', 'font-normal');
                 span.style.textShadow = '0 0 15px rgba(255, 184, 77, 0.4)';
             }
@@ -4525,6 +4559,8 @@
  function setOpen(open,returnFocus=false){panel.hidden=!open;core.setAttribute('aria-expanded',String(open));if(open){syncControls();document.getElementById('nx-close').focus({preventScroll:true});}else if(returnFocus)core.focus({preventScroll:true});}
  function setState(next){
   if(!Object.prototype.hasOwnProperty.call(labels,next))return false;
+  if(next==='processing')applyCompanion({emotion:'thoughtful',accessory:core.dataset.nxAccessory||'none'});
+  if(next==='alert')applyCompanion({emotion:'concerned',accessory:'none'});
   state=next;core.dataset.nxState=next;label.textContent=labels[next];panelState.textContent='Estado: '+labels[next];
   core.setAttribute('aria-label','Compañero NEXUS: '+labels[next]+'. Abrir controles; arrastrar para mover.');
   if(next!=='listening')setVolume(0,true);return true;
@@ -4573,8 +4609,26 @@
  const motionChanged=()=>{cancelAnimationFrame(frame);frame=0;queueBlink();};
  if(reduced.addEventListener)reduced.addEventListener('change',motionChanged);else reduced.addListener(motionChanged);
  window.addEventListener('resize',()=>position(offset.x,offset.y),{passive:true});
- window.NexusBuddy=Object.freeze({setState,setVolume,blink,center,open:()=>setOpen(true),close:()=>setOpen(false),get state(){return state;}});
- setState(typeof currentState==='string'?currentState:'dormant');queueBlink();
+ const emotions=new Set(['neutral','happy','curious','thoughtful','surprised','concerned','amused','empathetic']);
+ const accessories=new Set(['none','witch_hat','umbrella','glasses','headphones','scarf']);
+ const mouths={neutral:'M128 190Q140 201 152 190',happy:'M124 188Q140 209 156 188',curious:'M134 194Q140 187 146 194Q140 202 134 194',thoughtful:'M131 196Q140 190 149 193',surprised:'M133 190Q140 182 147 190Q153 204 140 207Q127 204 133 190',concerned:'M128 200Q140 187 152 200',amused:'M126 192Q143 205 155 186',empathetic:'M128 195Q140 202 152 195'};
+ function applyCompanion(value){
+  const data=value&&typeof value==='object'?value:{};
+  const emotion=emotions.has(data.emotion)?data.emotion:'neutral';
+  const accessory=accessories.has(data.accessory)?data.accessory:'none';
+  core.dataset.nxEmotion=emotion;core.dataset.nxAccessory=accessory;
+  core.querySelector('.nx-mouth-rest').setAttribute('d',mouths[emotion]);
+  core.style.setProperty('--nx-tilt',({curious:'-3deg',thoughtful:'2deg',amused:'3deg',empathetic:'-2deg'})[emotion]||'0deg');
+  return {emotion,accessory};
+ }
+ function applyWeather(data){
+  if(!data||data.error)return;
+  const rainy=[51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(Number(data.weatherCode));
+  const probability=typeof data.probLluvia==='number'?data.probLluvia:0;
+  applyCompanion(rainy||probability>=40?{emotion:'concerned',accessory:'umbrella'}:{emotion:'neutral',accessory:'none'});
+ }
+ window.NexusBuddy=Object.freeze({setState,setVolume,blink,center,applyCompanion,applyWeather,open:()=>setOpen(true),close:()=>setOpen(false),get state(){return state;}});
+ applyCompanion({emotion:'neutral',accessory:'none'});setState(typeof currentState==='string'?currentState:'dormant');queueBlink();
  requestAnimationFrame(()=>{try{const saved=JSON.parse(localStorage.getItem(key));if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y))position(saved.x,saved.y);}catch(_){}});
 })();
 

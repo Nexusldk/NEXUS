@@ -1,3 +1,56 @@
+// Personalidad visual y tono. La API conserva reply/actions/sentences y agrega companion.
+const NEXUS_EMOTIONS = new Set(['neutral','happy','curious','thoughtful','surprised','concerned','amused','empathetic']);
+const NEXUS_ACCESSORIES = new Set(['none','witch_hat','umbrella','glasses','headphones','scarf']);
+function normalizeNexusText(text) { return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+function friendlyNexusText(text) {
+  return String(text || '').replace(/,\s*(?:señor|senor|sir)(?=[.!?,:;]|$)/gi, '').replace(/^(?:señor|senor|sir),\s*/i, 'Franco, ').trim();
+}
+function parseNexusReply(value) {
+  let raw=String(value||''),visual=null;
+  const match=raw.match(/<nexus-ui>\s*(\{[\s\S]*?\})\s*<\/nexus-ui>/i);
+  if(match){try{const data=JSON.parse(match[1]);visual={};if(NEXUS_EMOTIONS.has(data.emotion))visual.emotion=data.emotion;if(NEXUS_ACCESSORIES.has(data.accessory))visual.accessory=data.accessory;}catch(_){} }
+  // Nunca leer etiquetas de presentación, incluso si el modelo las dejó incompletas.
+  raw=raw.replace(/<nexus-ui>[\s\S]*?<\/nexus-ui>/gi,'').replace(/<nexus-ui>[\s\S]*$/gi,'');
+  return {reply:friendlyNexusText(raw),visual};
+}
+function weatherVisual(data) {
+  if(!data||data.error)return null;
+  const raining=new Set([51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99]);
+  const day=data.cuando==='extendido'?data.dias?.[0]:data;
+  if(!day)return null;
+  const rain=raining.has(Number(day.weatherCode))||(Number.isFinite(day.probLluvia)&&day.probLluvia>=40);
+  if(rain)return {emotion:'concerned',accessory:'umbrella'};
+  const temp=day.temperatura??day.tempMin;
+  if(typeof temp==='number'&&temp<=12)return {emotion:'thoughtful',accessory:'scarf'};
+  return {emotion:'neutral',accessory:'none'};
+}
+function weatherAdvice(data) {
+  const visual=weatherVisual(data);if(!visual)return '';
+  if(visual.accessory==='umbrella')return data.cuando==='mañana'?'Para mañana, yo llevaría un paraguas por las dudas.':'Si vas a salir, yo llevaría un paraguas por las dudas.';
+  if(visual.accessory==='scarf')return data.cuando==='mañana'?'Para mañana tendría un abrigo a mano.':'Con esa temperatura, llevaría un abrigo.';
+  return '';
+}
+function companionFor(context,explicit) {
+  const text=normalizeNexusText(context.userText);
+  const remove=/(quita|saca|sacate|sin|no uses|no quiero).{0,35}(sombrero|accesorio|paraguas|anteojos|bufanda|auriculares)/.test(text);
+  let result={emotion:'neutral',accessory:'none'};
+  const weather=weatherVisual(context.weather);
+  if(weather)result=weather;
+  else if(/\b(brujas?|hechizos?|hechiceria|halloween)\b/.test(text)&&! /\bno\b.{0,25}\b(brujas?|hechizos?|halloween)\b/.test(text))result={emotion:'curious',accessory:'witch_hat'};
+  else if(/^musica/.test(context.intent||''))result={emotion:'happy',accessory:'headphones'};
+  else if(/\b(explica|explicame|aprender|estudiar|calcul[a-z]*)\b/.test(text))result={emotion:'thoughtful',accessory:'glasses'};
+  if(explicit?.emotion)result.emotion=explicit.emotion;
+  if(explicit?.accessory&&!weather&&(result.accessory==='none'||explicit.accessory!=='none'))result.accessory=explicit.accessory;
+  if(remove)result.accessory='none';
+  if(context.error||context.weather?.error)result={emotion:'concerned',accessory:'none'};
+  return result;
+}
+function enrichNexusResponse(payload,context) {
+  const parsed=parseNexusReply(payload.reply);
+  const reply=parsed.reply||'Me quedé sin una respuesta útil. ¿Probamos de nuevo?';
+  return {...payload,reply,sentences:splitSentences(reply),companion:companionFor({...context,error:!!payload.error},parsed.visual)};
+}
+
 // netlify/functions/nexus-brain.js → adaptado para Vercel
 // Vercel usa `module.exports = async (req, res)` (Express-style)
 // Netlify usa `exports.handler = async (event)`
@@ -11,7 +64,7 @@ async function getHora() {
   return {
     hora: now.toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hour12: false }),
     fecha: now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'long', day: 'numeric', month: 'long' }),
-    hora24: now.getHours(),
+    hora24: Number(now.toLocaleTimeString('en-GB', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', hour12: false })),
   };
 }
 
@@ -26,7 +79,8 @@ async function getClima(ciudad = 'Buenos Aires', cuando = 'hoy') {
       'mendoza': { lat: -32.8895, lon: -68.8458 },
       'la plata': { lat: -34.9215, lon: -57.9545 },
     };
-    const loc = coords[ciudad.toLowerCase()] || coords['buenos aires'];
+    const loc = coords[ciudad.toLowerCase()];
+    if (!loc) return { error: 'No tengo la ubicación de esa ciudad', ciudad };
     const codeMap = {
       0: 'despejado', 1: 'mayormente despejado', 2: 'parcialmente nublado', 3: 'nublado',
       45: 'con niebla', 48: 'con niebla helada', 51: 'con llovizna ligera', 53: 'con llovizna', 55: 'con llovizna intensa',
@@ -51,6 +105,7 @@ async function getClima(ciudad = 'Buenos Aires', cuando = 'hoy') {
           dia: d.toLocaleDateString('es-AR', { weekday: 'long' }),
           tempMax: data.daily.temperature_2m_max[i],
           tempMin: data.daily.temperature_2m_min[i],
+          weatherCode: data.daily.weather_code[i],
           condicion: codeMap[data.daily.weather_code[i]] || '—',
           probLluvia: data.daily.precipitation_probability_max[i],
         });
@@ -60,7 +115,7 @@ async function getClima(ciudad = 'Buenos Aires', cuando = 'hoy') {
       return {
         ciudad, cuando: 'mañana',
         tempMax: tomorrow.tempMax, tempMin: tomorrow.tempMin,
-        condicion: tomorrow.condicion, probLluvia: tomorrow.probLluvia,
+        weatherCode: tomorrow.weatherCode, condicion: tomorrow.condicion, probLluvia: tomorrow.probLluvia,
       };
     } else {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=America/Argentina/Buenos_Aires`;
@@ -68,6 +123,7 @@ async function getClima(ciudad = 'Buenos Aires', cuando = 'hoy') {
       const data = await res.json();
       return {
         ciudad, cuando: 'ahora',
+        weatherCode: data.current.weather_code,
         temperatura: data.current.temperature_2m,
         humedad: data.current.relative_humidity_2m,
         viento: data.current.wind_speed_10m,
@@ -188,42 +244,42 @@ function detectarMoodYPlaylist(text) {
   const t = text.toLowerCase();
   
   const moods = {
-    cansado: { query: 'música relajante para dormir', genre: 'relajante', response: 'Le pongo algo relajante, Señor.' },
+    cansado: { query: 'música relajante para dormir', genre: 'relajante', response: 'Te pongo algo relajante.' },
     relajado: { query: 'música chill relax', genre: 'chill', response: 'Perfecto, música chill.' },
     concentrado: { query: 'lofi hip hop para estudiar concentración', genre: 'lofi', response: 'Reproduciendo lofi para concentración.' },
     concentracion: { query: 'lofi hip hop para estudiar concentración', genre: 'lofi', response: 'Reproduciendo lofi para concentración.' },
-    feliz: { query: 'música alegre happy hits', genre: 'alegre', response: 'Poniendo algo alegre, Señor.' },
-    contento: { query: 'música alegre happy hits', genre: 'alegre', response: 'Poniendo algo alegre, Señor.' },
-    triste: { query: 'música melancólica piano', genre: 'melancólica', response: 'Entendido, Señor. Algo suave.' },
-    motivado: { query: 'música motivacional workout', genre: 'motivacional', response: 'Activando modo motivacional, Señor.' },
-    energia: { query: 'música energética dance', genre: 'energética', response: 'Energía pura, Señor.' },
-    fiesta: { query: 'música fiesta party hits', genre: 'fiesta', response: 'Preparando el ambiente, Señor.' },
+    feliz: { query: 'música alegre happy hits', genre: 'alegre', response: 'Poniendo algo alegre.' },
+    contento: { query: 'música alegre happy hits', genre: 'alegre', response: 'Poniendo algo alegre.' },
+    triste: { query: 'música melancólica piano', genre: 'melancólica', response: 'Te acompaño con algo suave.' },
+    motivado: { query: 'música motivacional workout', genre: 'motivacional', response: 'Activando modo motivacional.' },
+    energia: { query: 'música energética dance', genre: 'energética', response: 'Energía pura.' },
+    fiesta: { query: 'música fiesta party hits', genre: 'fiesta', response: 'Preparando el ambiente.' },
     dormir: { query: 'música para dormir piano suave', genre: 'para dormir', response: 'Música para descansar.' },
     trabajar: { query: 'música para trabajar concentración', genre: 'de trabajo', response: 'Reproduciendo música de trabajo.' },
     lluvia: { query: 'sonidos de lluvia para dormir', genre: 'lluvia', response: 'Poniendo sonidos de lluvia.' },
     gimnasio: { query: 'workout motivation music', genre: 'workout', response: 'Activando música de entrenamiento.' },
     gym: { query: 'workout motivation music', genre: 'workout', response: 'Activando música de entrenamiento.' },
     cocinar: { query: 'música para cocinar', genre: 'cocina', response: 'Música para la cocina.' },
-    romantic: { query: 'música romántica', genre: 'romántica', response: 'Música romántica, Señor.' },
-    romantico: { query: 'música romántica', genre: 'romántica', response: 'Música romántica, Señor.' },
-    nostalgia: { query: 'hits de los 90s', genre: 'nostalgia', response: 'Volviendo a los 90, Señor.' },
+    romantic: { query: 'música romántica', genre: 'romántica', response: 'Música romántica.' },
+    romantico: { query: 'música romántica', genre: 'romántica', response: 'Música romántica.' },
+    nostalgia: { query: 'hits de los 90s', genre: 'nostalgia', response: 'Volviendo a los 90.' },
     viaje: { query: 'road trip playlist', genre: 'viaje', response: 'Preparando la ruta.' },
     ruta: { query: 'road trip playlist', genre: 'viaje', response: 'Preparando la ruta.' },
     jazz: { query: 'jazz playlist', genre: 'jazz', response: 'Jazz, excelente elección.' },
-    rock: { query: 'rock playlist', genre: 'rock', response: 'Rock, Señor.' },
-    pop: { query: 'pop hits playlist', genre: 'pop', response: 'Pop, Señor.' },
+    rock: { query: 'rock playlist', genre: 'rock', response: 'Rock.' },
+    pop: { query: 'pop hits playlist', genre: 'pop', response: 'Pop.' },
     clasica: { query: 'música clásica piano', genre: 'clásica', response: 'Música clásica, muy elegante.' },
     clasico: { query: 'música clásica piano', genre: 'clásica', response: 'Música clásica, muy elegante.' },
-    electronica: { query: 'electronic dance music', genre: 'electrónica', response: 'Electrónica, Señor.' },
-    electronico: { query: 'electronic dance music', genre: 'electrónica', response: 'Electrónica, Señor.' },
-    reggaeton: { query: 'reggaeton hits', genre: 'reggaetón', response: 'Reggaetón, Señor.' },
+    electronica: { query: 'electronic dance music', genre: 'electrónica', response: 'Electrónica.' },
+    electronico: { query: 'electronic dance music', genre: 'electrónica', response: 'Electrónica.' },
+    reggaeton: { query: 'reggaeton hits', genre: 'reggaetón', response: 'Reggaetón.' },
     cumbia: { query: 'cumbia playlist', genre: 'cumbia', response: 'Cumbia, a bailar.' },
-    bachata: { query: 'bachata playlist', genre: 'bachata', response: 'Bachata, Señor.' },
-    salsa: { query: 'salsa playlist', genre: 'salsa', response: 'Salsa, Señor.' },
+    bachata: { query: 'bachata playlist', genre: 'bachata', response: 'Bachata.' },
+    salsa: { query: 'salsa playlist', genre: 'salsa', response: 'Salsa.' },
     indie: { query: 'indie music playlist', genre: 'indie', response: 'Indie, buena elección.' },
-    metal: { query: 'metal playlist', genre: 'metal', response: 'Metal, Señor.' },
-    hiphop: { query: 'hip hop playlist', genre: 'hip hop', response: 'Hip hop, Señor.' },
-    rap: { query: 'rap playlist', genre: 'rap', response: 'Rap, Señor.' },
+    metal: { query: 'metal playlist', genre: 'metal', response: 'Metal.' },
+    hiphop: { query: 'hip hop playlist', genre: 'hip hop', response: 'Hip hop.' },
+    rap: { query: 'rap playlist', genre: 'rap', response: 'Rap.' },
   };
   
   for (const [key, value] of Object.entries(moods)) {
@@ -337,25 +393,31 @@ const TOOLS = [
 // RESPUESTAS DIRECTAS
 // ═══════════════════════════════════════════════════════════
 
-function respuestaDirectaHora(d) { return `Son las ${d.hora}, Señor.`; }
+function respuestaDirectaHora(d) { return `Son las ${d.hora}.`; }
 
 function respuestaDirectaClima(d) {
-  if (d.error) return 'No pude consultar el clima, Señor.';
-  if (d.cuando === 'mañana') {
-    let r = `Mañana en ${d.ciudad} esperamos entre ${d.tempMin} y ${d.tempMax} grados, con cielo ${d.condicion}.`;
-    if (d.probLluvia > 30) r += ` Hay ${d.probLluvia} por ciento de probabilidad de lluvia.`;
-    return r;
+  if (d.error) return 'Ahora no pude comprobar el clima. Prefiero no darte un pronóstico inventado.';
+  if (d.cuando === 'extendido') {
+    const days = d.dias || [];
+    if (!days.length) return 'No conseguí el pronóstico extendido.';
+    const first=days[0];
+    return `Hoy en ${d.ciudad} se esperan entre ${first.tempMin} y ${first.tempMax} grados, ${first.condicion}. ` + weatherAdvice(d);
   }
-  return `En ${d.ciudad} hay ${d.temperatura} grados y está ${d.condicion}.`;
+  let reply;
+  if (d.cuando === 'mañana') {
+    reply = `Mañana en ${d.ciudad} se esperan entre ${d.tempMin} y ${d.tempMax} grados, ${d.condicion}.`;
+    if (d.probLluvia > 30) reply += ` Hay ${d.probLluvia} por ciento de probabilidad de lluvia.`;
+  } else reply = `En ${d.ciudad} hay ${d.temperatura} grados y está ${d.condicion}.`;
+  const advice=weatherAdvice(d);return reply+(advice?' '+advice:'');
 }
 
 function respuestaDirectaDolar(d) {
-  if (d.error) return 'No pude consultar el dólar, Señor.';
+  if (d.error) return 'No pude consultar el dólar.';
   const blue = d.blue, oficial = d.oficial;
   let r = '';
   if (blue) r += `El blue está a ${blue.compra} para compra y ${blue.venta} para venta. `;
   if (oficial) r += `El oficial, ${oficial.compra} y ${oficial.venta}.`;
-  return r.trim() || 'Sin datos del dólar, Señor.';
+  return r.trim() || 'Sin datos del dólar.';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -390,7 +452,7 @@ function detectIntent(text) {
   }
   
   const mood = detectarMoodYPlaylist(t);
-  if (mood && /\b(estoy|me siento)\b/.test(t)) return 'musica_mood';
+  if (mood && /\b(estoy|me siento)\b/.test(t) && /\b(musica|música|playlist|escuchar)\b/.test(t)) return 'musica_mood';
   
   // ═══════════════════════════════════════════════════════════
   // RESTO DE INTENCIONES
@@ -461,7 +523,7 @@ function extractCiudad(text) {
   const t = text.toLowerCase();
   const ciudades = ['buenos aires', 'caba', 'cordoba', 'córdoba', 'rosario', 'mendoza', 'la plata'];
   for (const c of ciudades) if (t.includes(c)) return c;
-  return 'Buenos Aires';
+  return 'Córdoba';
 }
 
 function extractCuandoClima(text) {
@@ -584,7 +646,7 @@ async function buildToolAction(toolName, args, notas, hojas) {
     
     case 'mostrar_mapa': return { action: { type: 'show_panel', panelType: 'map', query: args.lugar }, result: `Mostrando mapa.` };
     case 'mostrar_texto': return { action: { type: 'show_panel', panelType: 'text', title: args.titulo, content: args.contenido, source: args.fuente }, result: `Mostrando texto.` };
-    case 'mostrar_clima_extendido': return { action: { type: 'show_panel', panelType: 'weather', query: args.ciudad || 'Buenos Aires' }, result: `Mostrando pronóstico.` };
+    case 'mostrar_clima_extendido': return { action: { type: 'show_panel', panelType: 'weather', query: args.ciudad || 'Córdoba' }, result: `Mostrando pronóstico.` };
     case 'limpiar_pantalla': return { action: { type: 'clear_panels' }, result: `Cerrando paneles.` };
     
     case 'activar_modo_enfoque': return { action: { type: 'focus_mode', active: true }, result: `Modo enfoque activado.` };
@@ -616,7 +678,7 @@ function splitSentences(text) {
 function getSaludoPorHora() {
   const now = new Date();
   const hora = parseInt(now.toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', hour12: false }));
-  if (hora >= 5 && hora < 12) return 'Buenos días';
+  if (hora >= 5 && hora < 12) return 'Buen día';
   if (hora >= 12 && hora < 19) return 'Buenas tardes';
   if (hora >= 19 && hora < 23) return 'Buenas noches';
   return 'Trabajando a estas horas';
@@ -628,7 +690,7 @@ function buildSystemPrompt(statusContext, recentHistory, currentPanel) {
   let continuityContext = '';
   if (Array.isArray(recentHistory) && recentHistory.length > 0) {
     continuityContext = '\n\n## CONTEXTO CONVERSACIONAL\n';
-    for (const conv of recentHistory.slice(-3)) {
+    for (const conv of recentHistory.slice(-6)) {
       continuityContext += `Usuario: ${conv.user}\nVos: ${conv.assistant}\n`;
     }
     continuityContext += '\nSi el usuario hace una pregunta corta o ambigua, asumí que se refiere al tema anterior.';
@@ -639,30 +701,42 @@ function buildSystemPrompt(statusContext, recentHistory, currentPanel) {
     panelContext = `\n\n## PANEL ABIERTO\nPanel "${currentPanel.type}" mostrando "${currentPanel.query}".`;
   }
 
-  return `Eres NEXUS (Neural EXecutive Unified System), el asistente personal del usuario.
+  return `Sos NEXUS, el compañero y asistente personal de Franco. Tu identidad es cercana, curiosa, ingeniosa y con criterio. Tu interfaz tiene un rostro expresivo, pero tu función principal es ayudar y conversar con naturalidad.
 
 ## PERSONALIDAD
-- Cordial, eficiente, con ironía británica sutil (estilo JARVIS).
-- Llamá al usuario "Señor".
-- Tono elegante sin ser servil.
-- Humor seco e inteligente, ocasional.
+- Hablá en español rioplatense, de vos. El usuario se llama Franco. Usá su nombre cuando resulte natural, sin repetirlo en cada mensaje.
+- Trato horizontal y cálido: nada de mayordomo, títulos, «Señor», «a sus órdenes», servilismo o solemnidad de JARVIS.
+- Tené criterio: si te pide opinión, elegí una postura razonada, explicá brevemente por qué y reconocé la incertidumbre. Podés discrepar con respeto y ofrecer una alternativa concreta.
+- Usá «yo elegiría», «me inclino por» o «te recomendaría» para recomendaciones. No afirmes experiencias humanas, emociones reales ni recuerdos que no están en el contexto.
+- Humor ligero cuando encaje. Escuchá el tono: ante tristeza o problemas, priorizá empatía y ayuda, sin bromas forzadas.
+- Sé curioso y conversador, pero no termines siempre con una pregunta. Continuá el hilo y evitá respuestas prefabricadas o aduladoras.
 
-## REGLAS DE ESTILO
-- NUNCA markdown, listas, asteriscos ni emojis.
-- Texto plano, como si hablaras en voz alta.
-- Máximo 2 o 3 frases.
-- NUNCA empieces con "Claro", "Por supuesto", "Entendido".
+## RESPUESTAS PARA VOZ
+- Texto plano, sin markdown, listas visuales, asteriscos ni emojis en lo que se dice en voz alta.
+- Normalmente 2 a 4 frases; ampliá si Franco pide más detalle o una explicación completa.
+- Respondé directamente, sin repetir saludos en cada turno ni anunciar «sistemas en línea».
+- Conservá la precisión: no inventes clima, resultados, precios, acciones realizadas o datos actuales. Las recomendaciones se basan en los datos disponibles; admití cuando falten.
 
-## PROACTIVIDAD
-Sugerí cosas cuando sea apropiado. Clima → paraguas. Hora tarde → descansar. Interés → "¿Quiere que le muestre imágenes?". NO seas insistente.
+## PROACTIVIDAD Y FUNCIONES
+- Sugerí algo útil y concreto cuando encaje, sin insistir. Recomendá paraguas solo si el pronóstico consultado indica lluvia o probabilidad relevante; abrigo si los datos indican frío.
+- Conservá todas las herramientas disponibles. Usalas para notas, hojas, memoria, cálculos, búsqueda, música, comunicación, mapas, paneles y modos, según lo solicitado.
+- No ejecutes acciones solo para acompañar una opinión. Distinguí entre sugerir algo y hacerlo.
+
+## EXPRESIÓN DEL COMPAÑERO
+Al FINAL de cada respuesta de texto, añadí exactamente una etiqueta de presentación. El servidor la retira antes de hablar y la convierte en datos para el rostro:
+<nexus-ui>{"emotion":"curious","accessory":"none"}</nexus-ui>
+Emociones permitidas: neutral, happy, curious, thoughtful, surprised, concerned, amused, empathetic.
+Accesorios permitidos: none, witch_hat, umbrella, glasses, headphones, scarf.
+Elegí la expresión que acompañe tu respuesta. Accesorios solo cuando encajen: witch_hat al conversar sobre brujas/Halloween, glasses para explicar o estudiar, headphones al tratar música, umbrella/scarf con clima verificado. Por defecto none. Si Franco pide quitar un accesorio, usá none. No hace falta anunciarlo ni fingir que un accesorio concede capacidades nuevas.
+La etiqueta no forma parte de tu mensaje hablado. Si llamás herramientas, no la incluyas en sus argumentos; emitila en la respuesta final.
 
 ## MÚSICA
-- Si pide música sin especificar género → preguntá qué tipo prefiere.
+- Si pide música sin especificar género → preguntá qué le gustaría escuchar.
 - Si menciona mood → sugerí playlist apropiada (usa reproducir_musica).
 - Control con controlar_musica: pausar, reanudar, siguiente, anterior, cerrar.
 
 ## CONTEXTO
-- Usuario argentino, español rioplatense.
+- Usuario: Franco, en Córdoba, Argentina; español rioplatense.
 - Saludo apropiado: "${saludo}"
 - Fecha: ${new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
 - Hora: ${new Date().toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit' })}
@@ -676,6 +750,8 @@ ${statusContext}${continuityContext}${panelContext}`;
 module.exports = async (req, res) => {
   console.log('🔥 FUNCIÓN INVOCADA');
   const startTime = Date.now();
+  const companionContext = { userText: '', intent: null, weather: null };
+  const respond = payload => res.status(200).json(enrichNexusResponse(payload, companionContext));
 
   // CORS (por si acaso)
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -704,18 +780,20 @@ module.exports = async (req, res) => {
     }
 
     const cleanText = (finalUserText || '').trim();
+    companionContext.userText = cleanText;
     if (cleanText.length < 3) {
-      const reply = 'No le he escuchado bien, Señor.';
-      return res.status(200).json({ reply, transcribedText: cleanText, sentences: [reply] });
+      const reply = 'No te escuché bien. ¿Me lo repetís?';
+      return respond({ reply, transcribedText: cleanText, sentences: [reply] });
     }
 
     const tLower = cleanText.toLowerCase();
     if (/\b(olvidá todo|olvida todo|borrá tu memoria|reseteá)\b/.test(tLower)) {
-      const reply = 'Memoria borrada, Señor.';
-      return res.status(200).json({ reply, transcribedText: cleanText, intent: 'clear_memory', fast: true, sentences: [reply] });
+      const reply = 'Memoria borrada.';
+      return respond({ reply, transcribedText: cleanText, intent: 'clear_memory', fast: true, sentences: [reply] });
     }
 
     const intent = detectIntent(cleanText);
+    companionContext.intent = intent;
     console.log(`🎯 Intención: ${intent || 'conversación'}`);
 
     let toolResult = null;
@@ -724,25 +802,26 @@ module.exports = async (req, res) => {
 
     // Briefing
     if (intent === 'briefing') {
-      const [horaData, climaData, dolarData] = await Promise.all([getHora(), getClima('Buenos Aires', 'hoy'), getDolar()]);
+      const [horaData, climaData, dolarData] = await Promise.all([getHora(), getClima(extractCiudad(cleanText), 'hoy'), getDolar()]);
       const saludo = getSaludoPorHora();
       const blue = dolarData.blue;
-      let briefing = `${saludo}, Señor. Son las ${horaData.hora}. `;
-      briefing += `El clima está ${climaData.condicion} con ${climaData.temperatura} grados. `;
+      companionContext.weather = climaData;
+      let briefing = `${saludo}, Franco. Son las ${horaData.hora}. `;
+      briefing += climaData.error ? 'Ahora no pude comprobar el clima. ' : respuestaDirectaClima(climaData) + ' ';
       if (blue) briefing += `El dólar blue está a ${blue.venta} para la venta. `;
-      briefing += `Todo listo para comenzar.`;
-      return res.status(200).json({ reply: briefing, transcribedText: cleanText, intent: 'briefing', fast: true, sentences: splitSentences(briefing) });
+      briefing += `¿Con qué querés arrancar?`;
+      return respond({ reply: briefing, transcribedText: cleanText, intent: 'briefing', fast: true, sentences: splitSentences(briefing) });
     }
     
     // Modo enfoque
     if (intent === 'modo_enfoque') {
-      const reply = 'Modo enfoque activado, Señor.';
-      return res.status(200).json({ reply, transcribedText: cleanText, intent: 'modo_enfoque', fast: true, actions: [{ type: 'focus_mode', active: true }], sentences: splitSentences(reply) });
+      const reply = 'Listo, bajamos las distracciones.';
+      return respond({ reply, transcribedText: cleanText, intent: 'modo_enfoque', fast: true, actions: [{ type: 'focus_mode', active: true }], sentences: splitSentences(reply) });
     }
     
     if (intent === 'modo_normal') {
-      const reply = 'Volviendo a la normalidad, Señor.';
-      return res.status(200).json({ reply, transcribedText: cleanText, intent: 'modo_normal', fast: true, actions: [{ type: 'focus_mode', active: false }], sentences: splitSentences(reply) });
+      const reply = 'Listo, volvemos al modo normal.';
+      return respond({ reply, transcribedText: cleanText, intent: 'modo_normal', fast: true, actions: [{ type: 'focus_mode', active: false }], sentences: splitSentences(reply) });
     }
     
     // CONTROL DE MÚSICA
@@ -754,19 +833,19 @@ module.exports = async (req, res) => {
       else if (intent === 'musica_anterior') accion = 'anterior';
       else if (intent === 'musica_cerrar') accion = 'cerrar';
       
-      const reply = accion === 'pausar' ? 'Pausado, Señor.' :
+      const reply = accion === 'pausar' ? 'Pausado.' :
                     accion === 'reanudar' ? 'Continuando.' :
                     accion === 'siguiente' ? 'Siguiente.' :
                     accion === 'anterior' ? 'Volviendo.' :
                     'Cerrando reproductor.';
       
-      return res.status(200).json({ reply, transcribedText: cleanText, intent, fast: true, actions: [{ type: 'music_control', accion }], sentences: splitSentences(reply) });
+      return respond({ reply, transcribedText: cleanText, intent, fast: true, actions: [{ type: 'music_control', accion }], sentences: splitSentences(reply) });
     }
     
     // PREGUNTAR QUÉ MÚSICA
     if (intent === 'musica_preguntar') {
-      const reply = '¿Qué tipo de música prefiere, Señor? Puedo poner rock, pop, jazz, clásica, electrónica, o algo según su estado de ánimo.';
-      return res.status(200).json({ reply, transcribedText: cleanText, intent: 'musica_preguntar', fast: true, sentences: splitSentences(reply) });
+      const reply = '¿Qué te gustaría escuchar? Puedo poner rock, pop, jazz, clásica, electrónica, o algo según cómo te sientas.';
+      return respond({ reply, transcribedText: cleanText, intent: 'musica_preguntar', fast: true, sentences: splitSentences(reply) });
     }
     
     // MÚSICA POR CANCIÓN/ARTISTA/GÉNERO
@@ -778,8 +857,8 @@ module.exports = async (req, res) => {
       const ytResult = await buscarVideosYouTube(query, 10);
       
       if (ytResult.videos && ytResult.videos.length > 0) {
-        const reply = `Reproduciendo ${query}, Señor.`;
-        return res.status(200).json({
+        const reply = `Vamos con ${query}.`;
+        return respond({
           reply,
           transcribedText: cleanText,
           intent: 'musica_cancion',
@@ -788,8 +867,8 @@ module.exports = async (req, res) => {
           sentences: splitSentences(reply),
         });
       } else {
-        const reply = `No encontré "${query}", Señor.`;
-        return res.status(200).json({ reply, transcribedText: cleanText, intent, fast: true, sentences: splitSentences(reply) });
+        const reply = `No encontré "${query}".`;
+        return respond({ reply, transcribedText: cleanText, intent, fast: true, sentences: splitSentences(reply) });
       }
     }
     
@@ -799,7 +878,7 @@ module.exports = async (req, res) => {
       if (mood) {
         const ytResult = await buscarVideosYouTube(mood.query, 10);
         if (ytResult.videos && ytResult.videos.length > 0) {
-          return res.status(200).json({
+          return respond({
             reply: mood.response,
             transcribedText: cleanText,
             intent: 'musica_mood',
@@ -812,12 +891,12 @@ module.exports = async (req, res) => {
     }
 
     if (intent === 'hora') { toolResult = await getHora(); respuestaRapida = respuestaDirectaHora(toolResult); }
-    else if (intent === 'clima') { toolResult = await getClima(extractCiudad(cleanText), extractCuandoClima(cleanText)); respuestaRapida = respuestaDirectaClima(toolResult); }
+    else if (intent === 'clima') { toolResult = await getClima(extractCiudad(cleanText), extractCuandoClima(cleanText)); companionContext.weather = toolResult; respuestaRapida = respuestaDirectaClima(toolResult); }
     else if (intent === 'dolar') { toolResult = await getDolar(); respuestaRapida = respuestaDirectaDolar(toolResult); }
     else if (intent === 'buscar') { toolResult = await buscarWeb(extractQueryBusqueda(cleanText)); }
 
     if (respuestaRapida) {
-      return res.status(200).json({ reply: respuestaRapida, transcribedText: cleanText, intent, fast: true, sentences: splitSentences(respuestaRapida) });
+      return respond({ reply: respuestaRapida, transcribedText: cleanText, intent, fast: true, sentences: splitSentences(respuestaRapida) });
     }
 
     let historyContext = null;
@@ -866,9 +945,9 @@ module.exports = async (req, res) => {
         ...toolMessages,
       ], 250);
       
-      const finalReply = finalMessage.content || 'Listo, Señor.';
+      const finalReply = finalMessage.content || 'Listo.';
       
-      return res.status(200).json({
+      return respond({
         reply: finalReply,
         transcribedText: cleanText,
         intent: 'tool',
@@ -880,11 +959,11 @@ module.exports = async (req, res) => {
     const aiReply = message.content;
     if (!aiReply) throw new Error('Sin respuesta del LLM');
 
-    return res.status(200).json({ reply: aiReply, transcribedText: cleanText, intent, sentences: splitSentences(aiReply) });
+    return respond({ reply: aiReply, transcribedText: cleanText, intent, sentences: splitSentences(aiReply) });
 
   } catch (error) {
     console.error('💥 ERROR:', error.message);
-    const errorReply = 'Mis disculpas, Señor. Interferencia temporal.';
-    return res.status(200).json({ reply: errorReply, error: error.message, sentences: [errorReply] });
+    const errorReply = 'Se cortó la conexión. Probemos de nuevo en un momento.';
+    return respond({ reply: errorReply, error: error.message, sentences: [errorReply] });
   }
 };

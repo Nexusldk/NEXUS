@@ -1447,6 +1447,7 @@
 @media(prefers-reduced-motion:reduce){.nx-motion{transform:none}.nx-brows path{transition:none}}
 
 </style>
+<link rel="stylesheet" href="/assets/nexus-workspace.css?v=integral-1">
 </head>
 <body class="antialiased selection:bg-n_cyan selection:text-n_bg1 font-sans font-light">
 
@@ -1775,6 +1776,7 @@
     }
 
     function showHoloPanel(config) {
+        if(window.NexusDesk)window.NexusDesk.close();
         // Cerrar paneles anteriores para no superponer
         closeAllHoloPanels();
         
@@ -2114,6 +2116,7 @@
     // PANEL DE HOJA (ya existente)
     // ═══════════════════════════════════════════════════════════
     function showSheetPanel(sheetName) {
+        if(window.NexusDesk)window.NexusDesk.close();
         const sheets = loadSheets();
         const sheet = sheets[sheetName.toLowerCase()];
         if (!sheet) { showToast(`⚠️ No existe "${sheetName}"`); return; }
@@ -2189,6 +2192,7 @@
     let currentManageTab = 'notes';
 
     function showManagePanel(tab = 'notes') {
+        if(window.NexusDesk)window.NexusDesk.close();
         currentManageTab = tab;
         document.querySelectorAll('.manage-tab').forEach(t => {
             t.classList.toggle('active', t.dataset.tab === tab);
@@ -2366,6 +2370,7 @@
     document.getElementById('manage-btn').addEventListener('click', () => showManagePanel('notes'));
 
     document.getElementById('manage-export-btn').addEventListener('click', () => {
+        if(window.NexusDesk){window.NexusDesk.downloadBackup();return;}
         const backup = {
             version: 1,
             exportedAt: new Date().toISOString(),
@@ -2397,6 +2402,7 @@
         reader.onload = (ev) => {
             try {
                 const backup = JSON.parse(ev.target.result);
+                if(backup.workspace && window.NexusDesk){window.NexusDesk.restore(backup);return;}
                 if (!confirm('Esto va a reemplazar TODOS los datos actuales. ¿Continuar?')) return;
                 if (backup.notes) saveNotes(backup.notes);
                 if (backup.sheets) saveSheets(backup.sheets);
@@ -2434,6 +2440,7 @@
         console.log('🎬 Ejecutando:', action);
         
         switch (action.type) {
+            case 'workspace_action': if(window.NexusDesk)window.NexusDesk.action(action); break;
             case 'save_note': {
                 const notes = loadNotes();
                 notes.push(action.text);
@@ -2859,6 +2866,7 @@
     // ═══════════════════════════════════════════════════════════
     // TTS — CON STREAMING POR ORACIONES
     // ═══════════════════════════════════════════════════════════
+    let ttsGeneration = 0;
     let ttsVoices = [];
     let isSpeakingAloud = false;
     let vadCooldownUntil = 0;
@@ -2877,7 +2885,15 @@
         setTimeout(loadVoices, 1500);
     }
 
+    function stopNexusSpeech() {
+        ttsGeneration++;
+        if(window.speechSynthesis)window.speechSynthesis.cancel();
+        isSpeakingAloud=false;
+        if(typeof backToDormant==='function')backToDormant();
+    }
     function getPreferredVoice() {
+        const chosen=window.NexusDesk?.preferences()?.voiceURI;
+        if(chosen){const selected=ttsVoices.find(v=>v.voiceURI===chosen);if(selected)return selected;}
         if (ttsVoices.length === 0) ttsVoices = window.speechSynthesis.getVoices();
         return (
             ttsVoices.find(v => v.lang.startsWith('es') && v.name.includes('Google')) ||
@@ -2894,7 +2910,7 @@
         
         const u = new SpeechSynthesisUtterance(sentence);
         u.lang = 'es-ES';
-        u.rate = 1.05;
+        u.rate = window.NexusDesk?.preferences()?.rate || 1.05;
         u.pitch = 1.05;
         u.volume = 1;
         
@@ -2909,6 +2925,7 @@
 
     // ⚡ STREAMING: reproduce un array de oraciones secuencialmente
     function speakOutLoudStreaming(sentences, onAllDone) {
+        const generation = ++ttsGeneration;
         console.log(`🗣️ TTS Streaming: ${sentences.length} oraciones`);
         if (!('speechSynthesis' in window)) { if (onAllDone) onAllDone(); return; }
         
@@ -2922,6 +2939,7 @@
         const startTime = performance.now();
         
         function playNext() {
+            if(generation !== ttsGeneration)return;
             if (index >= sentences.length) {
                 // Todas las oraciones terminaron
                 isSpeakingAloud = false;
@@ -3168,7 +3186,7 @@
                 const base64Audio = reader.result.split(',')[1];
                 console.log('📡 Enviando...');
 
-                const history = loadHistory();
+                const history = window.NexusDesk ? window.NexusDesk.history() : loadHistory();
                 const notas = loadNotes();
                 const hojas = loadSheets();
                 const facts = loadFacts();
@@ -3197,6 +3215,7 @@
                             hojas: hojas,
                             facts: facts,
                             currentPanel: currentPanel,
+                            workspaceContext: window.NexusDesk ? window.NexusDesk.context() : {},
                         })
                     });
 
@@ -3204,6 +3223,7 @@
 
                     const data = await response.json();
                     if (window.NexusBuddy) window.NexusBuddy.applyCompanion(data.companion);
+                    if (window.NexusDesk) window.NexusDesk.receive(data, {source:"voice"});
                     const elapsed = Math.round(performance.now() - t0);
 
                     console.log(`✅ ${elapsed}ms (${data.intent || 'general'})`);
@@ -3259,7 +3279,7 @@
 
     let spaceHeld = false;
     document.addEventListener('keydown', (e) => {
-        if (!e.target.closest?.('#nx-controls, #core-container, input, textarea, select, [contenteditable=true]') && e.code === 'Space' && !spaceHeld && !e.repeat && audioReady && !isSpeakingAloud && !e.ctrlKey) {
+        if (!e.target.closest?.('#nx-desk, #nx-controls, #core-container, input, textarea, select, [contenteditable=true]') && e.code === 'Space' && !spaceHeld && !e.repeat && audioReady && !isSpeakingAloud && !e.ctrlKey) {
             e.preventDefault();
             spaceHeld = true;
             startCapture();
@@ -4467,6 +4487,7 @@
     
     function setFocusMode(active) {
         focusModeActive = active;
+        if(active && window.NexusDesk)window.NexusDesk.close();
         
         if (active) {
             document.body.classList.add('focus-mode');
@@ -4556,7 +4577,7 @@
   subsButton.setAttribute('aria-pressed',String(typeof subsVisible!=='undefined'&&subsVisible));
   subsButton.textContent=(typeof subsVisible!=='undefined'&&subsVisible)?'Subtítulos: activados':'Subtítulos: desactivados';
  }
- function setOpen(open,returnFocus=false){panel.hidden=!open;core.setAttribute('aria-expanded',String(open));if(open){syncControls();document.getElementById('nx-close').focus({preventScroll:true});}else if(returnFocus)core.focus({preventScroll:true});}
+ function setOpen(open,returnFocus=false){if(window.NexusDesk){open?window.NexusDesk.open('chat'):window.NexusDesk.close();return;}panel.hidden=!open;core.setAttribute('aria-expanded',String(open));if(open){syncControls();document.getElementById('nx-close').focus({preventScroll:true});}else if(returnFocus)core.focus({preventScroll:true});}
  function setState(next){
   if(!Object.prototype.hasOwnProperty.call(labels,next))return false;
   if(next==='processing')applyCompanion({emotion:'thoughtful',accessory:core.dataset.nxAccessory||'none'});
@@ -4633,5 +4654,6 @@
 })();
 
 </script>
+<script src="/assets/nexus-workspace.js?v=integral-1"></script>
 </body>
 </html>
